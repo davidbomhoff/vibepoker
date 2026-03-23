@@ -128,8 +128,8 @@ header {
 
 /* CARD STYLING */
 .card {
-    width: 70px;
-    height: 104px;
+    width: clamp(70px, 8vmin, 130px);
+    aspect-ratio: 70 / 104;
     background: white;
     border: 2px solid #333;
     border-radius: 4px;
@@ -144,8 +144,7 @@ header {
 .player-seat.player-left .card,
 .player-seat.player-right .card,
 .player-seat.player-top .card {
-    width: 35px;
-    height: 52px;
+    width: clamp(35px, 4vmin, 65px);
 }
 
 .player-seat.player-left .player-cards,
@@ -190,7 +189,6 @@ header {
     border: 1px solid #e63946;
     border-radius: 6px;
     padding: 8px;
-    max-width: 100px;
 }
 
 .player-seat.player-left {
@@ -209,7 +207,7 @@ header {
     flex-direction: column;
     gap: 6px;
     width: auto;
-    min-width: 200px;
+    min-width: clamp(200px, 22vmin, 300px);
     padding: 8px 12px;
     z-index: 14;
     background: rgba(0, 0, 0, 0.4);
@@ -797,14 +795,12 @@ header {
     
     .card {
         width: 30px;
-        height: 45px;
     }
 }
 
 @media (max-height: 600px) {
     .card {
         width: 28px;
-        height: 42px;
     }
     
     .btn {
