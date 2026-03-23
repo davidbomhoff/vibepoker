@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 75 120">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #ed2024;
+      }
+    </style>
+  </defs>
+  <path class="cls-1" d="M0,0v9h9v.67c0,5.49-1.15,10.92-3.38,15.93l-.62,1.39h22v-9h-9l.03-.06C22.15,9.7,16.16,0,6.95,0H0Z"/>
+  <path class="cls-1" d="M75,120v-9h-9v-.67c0-5.49,1.15-10.92,3.38-15.93l.62-1.39h-22v9h9l-.03.06c-4.12,8.24,1.87,17.94,11.09,17.94h6.95Z"/>
+  <polygon class="cls-1" points="37.5 6 42 0 46.5 6 37.5 18 28.5 6 33 0 37.5 6"/>
+  <polygon class="cls-1" points="37.5 114 33 120 28.5 114 37.5 102 46.5 114 42 120 37.5 114"/>
+</svg>
