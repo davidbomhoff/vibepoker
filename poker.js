@@ -71,24 +71,70 @@ document.addEventListener('DOMContentLoaded', () => {
             this.isAllIn = false;
         }
 
-        evaluateHand() {
+        evaluateHand(communityCards = []) {
             if (this.hand.length < 2) return 0;
-            const values = this.hand.map(c => c.rank);
-            return (Math.max(...values) / 14) + (Math.random() * 0.3);
+
+            // Pre-flop: evaluate only own hole cards (cannot see any community cards yet)
+            if (communityCards.length === 0) {
+                const ranks = this.hand.map(c => c.rank);
+                const isPair = ranks[0] === ranks[1];
+                const isSuited = this.hand[0].suit === this.hand[1].suit;
+                const highCard = Math.max(...ranks);
+                const gap = Math.abs(ranks[0] - ranks[1]);
+                let strength = highCard / 14;
+                if (isPair) strength = 0.65 + (ranks[0] / 14) * 0.2;
+                else if (isSuited && gap <= 2) strength = Math.max(strength, 0.55);
+                else if (highCard >= 13) strength = Math.max(strength, 0.50);
+                return Math.min(1.0, strength + Math.random() * 0.1);
+            }
+
+            // Post-flop: evaluate best 5-card hand using only own cards + visible community cards
+            const allCards = [...this.hand, ...communityCards];
+            const { score } = HandEvaluator.findBestHand(allCards);
+
+            // Normalize score from HandEvaluator.scoreHand() to a 0–1 strength value.
+            // HandEvaluator scores: Royal Flush=1,000,000 … One Pair=200,000 …
+            // High Card = highestRank * 100 (max Ace = 14 * 100 = 1,400).
+            if (score >= 1000000) return 1.00; // Royal Flush
+            if (score >= 900000)  return 0.95; // Straight Flush
+            if (score >= 800000)  return 0.90; // Four of a Kind
+            if (score >= 700000)  return 0.85; // Full House
+            if (score >= 600000)  return 0.80; // Flush
+            if (score >= 500000)  return 0.75; // Straight
+            if (score >= 400000)  return 0.65; // Three of a Kind
+            if (score >= 300000)  return 0.55; // Two Pair
+            if (score >= 200000)  return 0.45; // One Pair
+            // High Card: scale 0–1400 into 0.10–0.35 (below One Pair threshold of 0.45)
+            return Math.max(0.10, (score / 1400) * 0.35);
         }
 
         makeDecision(currentBet, pot, communityCards) {
             if (this.hasFolded || this.stack === 0) return 'fold';
-            const handStrength = this.evaluateHand();
+
+            // AI only evaluates its own cards plus the revealed community cards —
+            // it has no knowledge of other players' hole cards or undealt cards.
+            const handStrength = this.evaluateHand(communityCards);
+
+            // Bluffing: ~20% chance to bet/raise with a weak hand
+            const isBluffing = handStrength < 0.45 && Math.random() < 0.20;
+
+            // Slow-playing: ~15% chance to just call instead of raising with a very strong hand
+            const isSlowPlaying = handStrength > 0.75 && Math.random() < 0.15;
 
             if (currentBet === 0) {
+                if (isBluffing) return 'bet';
                 return handStrength > 0.6 ? 'bet' : 'check';
             }
 
             const amountToCall = Math.min(currentBet - this.bet, this.stack);
             const remainingStack = this.stack - amountToCall;
 
+            if (isBluffing) {
+                return remainingStack > 0 ? 'raise' : 'call';
+            }
+
             if (handStrength > 0.75) {
+                if (isSlowPlaying) return 'call';
                 return remainingStack > 0 ? 'raise' : 'call';
             } else if (handStrength > 0.5) {
                 return 'call';
