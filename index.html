@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibePoker - WPT Edition</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>♠ VIBE POKER ♠</h1>
+            <p>All errors non-human</p>
+        </header>
+
+        <div class="table-wrapper">
+            <!-- Pot Display -->
+            <div id="pot-zone" class="pot-zone">
+                <div class="pot-label">POT</div>
+                <div id="pot-display" class="pot-amount">$0</div>
+                <div id="pot-chips" class="pot-chips"></div>
+            </div>
+
+            <!-- River (Community Cards) -->
+            <div class="river-zone">
+                <div id="community-cards" class="community-cards"></div>
+            </div>
+
+            <!-- Players Left and Right of River -->
+            <div class="players-container">
+                <!-- Left Player (Player 1) -->
+                <div class="player-seat player-left">
+                    <div class="player-avatar">
+                        <img src="player1-avatar.svg" alt="Player 1">
+                    </div>
+                    <div class="player-info">
+                        <div id="ai-player-0-name" class="player-name">Player 1</div>
+                        <div id="ai-player-0-stack" class="player-stack">$500</div>
+                    </div>
+                    <div id="ai-player-0-cards" class="player-cards"></div>
+                    <div id="ai-player-0-bet-display" class="bet-chips"></div>
+                </div>
+
+                <!-- Center Player (You) -->
+                <div class="player-hand-info player-hand-left">
+                    <div class="hand-label">Possible Hands</div>
+                    <div id="possible-hands" class="hand-list"></div>
+                </div>
+
+                <div class="player-seat player-center">
+                    <div class="you-label">YOU</div>
+                    <div id="player-cards" class="player-cards your-hand"></div>
+                    <div id="player-stack" class="player-stack">$500</div>
+                    <div id="player-bet-display" class="bet-chips"></div>
+                </div>
+
+                <div class="player-hand-info player-hand-right">
+                    <div class="hand-label">Current Hand</div>
+                    <div id="current-hand" class="hand-display"></div>
+                </div>
+
+                <!-- Right Player (Player 2) -->
+                <div class="player-seat player-right">
+                    <div class="player-avatar">
+                        <img src="player2-avatar.svg" alt="Player 2">
+                    </div>
+                    <div class="player-info">
+                        <div id="ai-player-1-name" class="player-name">Player 2</div>
+                        <div id="ai-player-1-stack" class="player-stack">$500</div>
+                    </div>
+                    <div id="ai-player-1-cards" class="player-cards"></div>
+                    <div id="ai-player-1-bet-display" class="bet-chips"></div>
+                </div>
+            </div>
+
+            <!-- Top Player (Player 3) -->
+            <div class="player-seat player-top">
+                <div class="player-avatar">
+                    <img src="player3-avatar.svg" alt="Player 3">
+                </div>
+                <div class="player-info">
+                    <div id="ai-player-2-name" class="player-name">Player 3</div>
+                    <div id="ai-player-2-stack" class="player-stack">$500</div>
+                </div>
+                <div id="ai-player-2-cards" class="player-cards"></div>
+                <div id="ai-player-2-bet-display" class="bet-chips"></div>
+            </div>
+
+            <!-- Game Message -->
+            <div id="game-message" class="game-message"></div>
+
+            <!-- Intro Controls -->
+            <div id="intro-controls" class="button-group">
+                <button id="next-intro" class="btn btn-primary">Next</button>
+                <button id="start-game" class="btn btn-success" style="display:none;">Deal Now</button>
+            </div>
+
+            <!-- Action Controls -->
+            <div id="action-controls" class="button-group" style="display:none;">
+                <button id="fold" class="btn btn-danger">Fold</button>
+                <button id="check" class="btn btn-secondary">Check</button>
+                <button id="call" class="btn btn-info">Call</button>
+                <button id="bet" class="btn btn-warning">Bet</button>
+                <button id="raise" class="btn btn-warning">Raise</button>
+                <button id="all-in" class="btn btn-danger">All In</button>
+            </div>
+
+            <!-- Bet Input -->
+            <div id="bet-input-section" class="bet-input-zone" style="display:none;">
+                <input type="number" id="bet-amount" placeholder="Enter amount" min="1">
+                <button id="confirm-bet" class="btn btn-success">Confirm</button>
+                <button id="cancel-bet" class="btn btn-secondary">Cancel</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winner-info" class="winner-info"></div>
+
+    <script src="poker.js"></script>
+</body>
+</html>

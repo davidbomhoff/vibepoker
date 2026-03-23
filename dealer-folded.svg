@@ -1,0 +1,6 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Placeholder for dealer avatar - folded state -->
+  <circle cx="100" cy="100" r="95" fill="#666666" stroke="#333333" stroke-width="3"/>
+  <text x="100" y="120" font-size="60" text-anchor="middle" fill="#bbb">😴</text>
+  <text x="100" y="170" font-size="14" text-anchor="middle" fill="#bbb" font-weight="bold">FOLDED</text>
+</svg>

@@ -1,0 +1,6 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Placeholder for dealer avatar - idle state -->
+  <circle cx="100" cy="100" r="95" fill="#00d4ff" stroke="#0088aa" stroke-width="3"/>
+  <text x="100" y="120" font-size="60" text-anchor="middle" fill="#1a1a2e">🎰</text>
+  <text x="100" y="170" font-size="14" text-anchor="middle" fill="#1a1a2e" font-weight="bold">DEALER</text>
+</svg>
