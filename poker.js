@@ -998,11 +998,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (gameState.playerFolded) {
-            // Player has folded - show phase info then auto-advance so AI players finish betting
-            const aiPhaseMsg = gameState.gamePhase === 'river'
-                ? 'RIVER revealed! AI players betting...'
-                : `${gameState.gamePhase.toUpperCase()} revealed! AI players betting...`;
+        // Player is all-in when they have no chips left but haven't folded.
+        // In that case they can't bet, so we auto-advance just like when folded.
+        const isPlayerAllIn = !gameState.playerFolded && gameState.playerStack === 0;
+
+        if (gameState.playerFolded || isPlayerAllIn) {
+            // Player has folded or is all-in - auto-advance so AI players finish betting
+            let aiPhaseMsg;
+            if (isPlayerAllIn) {
+                aiPhaseMsg = `${gameState.gamePhase.toUpperCase()} revealed! You're all-in — watching AI bet...`;
+            } else if (gameState.gamePhase === 'river') {
+                aiPhaseMsg = 'RIVER revealed! AI players betting...';
+            } else {
+                aiPhaseMsg = `${gameState.gamePhase.toUpperCase()} revealed! AI players betting...`;
+            }
             if (gameMsg) gameMsg.textContent = aiPhaseMsg;
             setTimeout(() => advancePhase(), 800);
         } else {
