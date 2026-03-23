@@ -486,7 +486,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function showIntroStep() {
         const msg = document.getElementById('game-message');
         if (msg && gameState.introStep < INTRO_SCRIPT.length) {
-            msg.textContent = INTRO_SCRIPT[gameState.introStep];
+            // On the first step, greet returning players by showing their all-time score
+            if (gameState.introStep === 0 && isReturningPlayer()) {
+                const score = loadLifetimeScore();
+                const label = score >= 0 ? 'WINNINGS' : 'DEBT';
+                msg.textContent = `Welcome back! Your ${label}: $${Math.abs(score)}`;
+            } else {
+                msg.textContent = INTRO_SCRIPT[gameState.introStep];
+            }
         }
         
         // Show game examples during intro
@@ -1285,6 +1292,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Lifetime score helpers (stored in the browser so it persists between visits) ---
 
+    // Returns true if this browser has a saved score (i.e. the player has played before).
+    function isReturningPlayer() {
+        return localStorage.getItem('vibepoker_score') !== null;
+    }
+
     // Reads the player's all-time score from localStorage. Returns 0 for first-time visitors.
     function loadLifetimeScore() {
         const stored = localStorage.getItem('vibepoker_score');
@@ -1357,6 +1369,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         showIntroStep();
         updateDisplay();
+
+        // If this player has visited before, let them skip straight to the game
+        if (isReturningPlayer()) {
+            const startBtn = document.getElementById('start-game');
+            if (startBtn) startBtn.style.display = 'inline-block';
+        }
     } catch (e) {
         console.error('Error starting game:', e);
     }
