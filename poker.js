@@ -282,14 +282,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayCommunityCards() {
+    function displayCommunityCards(newlyDealtCount = 0) {
         const container = document.getElementById('community-cards');
         if (container) {
             container.innerHTML = '';
+            const totalDealt = gameState.communityCards.length;
             for (let i = 0; i < 5; i++) {
-                if (i < gameState.communityCards.length) {
-                    displayCard(gameState.communityCards[i], container, false);
+                if (i < totalDealt) {
+                    // Build the card div manually so we can add the flip animation
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'card';
+                    const img = document.createElement('img');
+                    img.src = gameState.communityCards[i].getImagePath();
+                    img.alt = gameState.communityCards[i].toString();
+                    cardDiv.appendChild(img);
+
+                    // Animate only the cards that were just dealt
+                    if (newlyDealtCount > 0 && i >= totalDealt - newlyDealtCount) {
+                        // Stagger each new card slightly so they flip in sequence
+                        const staggerDelay = (i - (totalDealt - newlyDealtCount)) * 0.12;
+                        cardDiv.style.animationDelay = `${staggerDelay}s`;
+                        cardDiv.classList.add('dealing');
+                    }
+
+                    container.appendChild(cardDiv);
                 } else {
+                    // Empty placeholder for cards not yet dealt
                     displayCard(null, container, true);
                 }
             }
@@ -478,7 +496,12 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 3; i++) {
             const stackDisplay = document.getElementById(`ai-player-${i}-stack`);
             if (stackDisplay && gameState.aiPlayers[i]) {
-                stackDisplay.textContent = '$' + gameState.aiPlayers[i].stack;
+                // Show "OUT" for eliminated players; otherwise show their chip count
+                if (gameState.aiPlayers[i].stack <= 0 && gameState.aiPlayers[i].hand.length === 0) {
+                    stackDisplay.textContent = 'OUT';
+                } else {
+                    stackDisplay.textContent = '$' + gameState.aiPlayers[i].stack;
+                }
             }
         }
     }
@@ -645,9 +668,36 @@ document.addEventListener('DOMContentLoaded', () => {
             seat.classList.remove('folded');
         });
 
-        gameState.aiPlayers.forEach(player => {
+        gameState.aiPlayers.forEach((player, i) => {
             player.reset();
-            player.hand = [gameState.deck.pop(), gameState.deck.pop()];
+            if (player.stack > 0) {
+                // Active player – deal two hole cards as normal
+                player.hand = [gameState.deck.pop(), gameState.deck.pop()];
+            }
+            // player.hand stays [] when stack = 0 (eliminated); reset() already cleared it.
+
+            // Update the visual "eliminated" state for each AI seat
+            const aiCardContainer = document.getElementById(`ai-player-${i}-cards`);
+            const aiSeat = aiCardContainer ? aiCardContainer.closest('.player-seat') : null;
+            const stackEl = document.getElementById(`ai-player-${i}-stack`);
+            if (aiSeat) {
+                if (player.stack <= 0) {
+                    aiSeat.classList.add('eliminated');
+                    // Show an "OUT" badge inside the seat if not already present
+                    if (!aiSeat.querySelector('.eliminated-label')) {
+                        const label = document.createElement('div');
+                        label.className = 'eliminated-label';
+                        label.textContent = 'OUT';
+                        aiSeat.appendChild(label);
+                    }
+                    if (stackEl) stackEl.textContent = 'OUT';
+                } else {
+                    aiSeat.classList.remove('eliminated');
+                    // Remove any leftover OUT badge from a previous session
+                    const oldLabel = aiSeat.querySelector('.eliminated-label');
+                    if (oldLabel) oldLabel.remove();
+                }
+            }
         });
 
         // Only include players with chips in active players
@@ -822,10 +872,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ctrl) ctrl.style.display = 'flex';
     });
 
-    const CARD_REVEAL_DELAY_MS = 3000;
+    const CARD_REVEAL_DELAY_MS = 1000;
 
     function countActivePlayers() {
-        const activeAIs = gameState.aiPlayers.filter(p => !p.hasFolded).length;
+        // Only count AIs who were dealt cards this hand (hand.length > 0) AND haven't folded.
+        // AIs eliminated before the hand (stack = 0) are never dealt cards, so hand.length = 0.
+        const activeAIs = gameState.aiPlayers.filter(p => !p.hasFolded && p.hand.length > 0).length;
         return activeAIs + (gameState.playerFolded ? 0 : 1);
     }
 
@@ -991,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'flop';
             gameState.communityCards.push(gameState.deck.pop(), gameState.deck.pop(), gameState.deck.pop());
-            displayCommunityCards();
+            displayCommunityCards(3); // animate all 3 flop cards
             updateCurrentHand();
             displayPossibleHands();
             phaseMessage = 'FLOP revealed! Your turn to bet.';
@@ -1001,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'turn';
             gameState.communityCards.push(gameState.deck.pop());
-            displayCommunityCards();
+            displayCommunityCards(1); // animate the 1 new turn card
             updateCurrentHand();
             displayPossibleHands();
             phaseMessage = 'TURN revealed! Your turn to bet.';
@@ -1011,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'river';
             gameState.communityCards.push(gameState.deck.pop());
-            displayCommunityCards();
+            displayCommunityCards(1); // animate the 1 new river card
             updateCurrentHand();
             displayPossibleHands();
             phaseMessage = 'RIVER revealed! Last chance to bet.';
@@ -1061,10 +1113,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctrl = document.getElementById('action-controls');
         if (ctrl) ctrl.style.display = 'none';
 
-        // Reveal all cards
-        gameState.aiPlayers.forEach((p, i) => displayAICards(i, true));
+        // Reveal all cards for AIs who were actually dealt in (eliminated AIs have no cards)
+        gameState.aiPlayers.forEach((p, i) => {
+            if (p.hand.length > 0) displayAICards(i, true);
+        });
 
-        // Determine winner
+        // --- Sole survivor: all other players folded ---
+        // When only 1 player is still in (everyone else folded), we award the pot without
+        // needing to compare full 5-card hands.  This prevents odd results when few or no
+        // community cards have been dealt yet.
+        const nonFoldedAIs = gameState.aiPlayers.filter(ai => !ai.hasFolded && ai.hand.length > 0);
+        const activePlayers = (gameState.playerFolded ? 0 : 1) + nonFoldedAIs.length;
+
+        if (activePlayers <= 1) {
+            if (!gameState.playerFolded) {
+                // Human player is the last one standing
+                displayWinner({ player: 'player', rank: 'Everyone else folded!', score: 0, cards: [] });
+            } else if (nonFoldedAIs.length === 1) {
+                // One AI is the last one standing
+                const winner = nonFoldedAIs[0];
+                displayWinner({ player: winner.name, rank: 'Everyone else folded!', score: 0, cards: [], aiPlayer: winner });
+            } else {
+                // Extremely rare edge case: all players folded simultaneously.
+                // Award the pot to the player with the most chips to avoid a dead pot.
+                const topAI = gameState.aiPlayers.reduce((best, p) => p.stack > best.stack ? p : best, gameState.aiPlayers[0]);
+                displayWinner({ player: topAI.name, rank: 'Everyone folded!', score: 0, cards: [], aiPlayer: topAI });
+            }
+            return;
+        }
+
+        // --- Normal showdown: compare hands ---
         let bestHand = { player: 'player', rank: 'None', score: -1 };
 
         if (!gameState.playerFolded) {
@@ -1075,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         gameState.aiPlayers.forEach(ai => {
-            if (!ai.hasFolded) {
+            if (!ai.hasFolded && ai.hand.length > 0) {
                 const allCards = [...ai.hand, ...gameState.communityCards];
                 const aiHand = HandEvaluator.findBestHand(allCards);
                 const aiRank = HandEvaluator.classifyHand(aiHand);
