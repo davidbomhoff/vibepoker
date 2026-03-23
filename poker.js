@@ -905,10 +905,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const amountToCall = Math.min(gameState.currentBet - player.bet, player.stack);
                     
-                    if (amountToCall > 0) {
+                    // Act when there is a bet to respond to, OR when no one has bet yet
+                    // (currentBet === 0) so the AI can decide to open with a bet or check.
+                    if (amountToCall > 0 || gameState.currentBet === 0) {
                         const decision = player.makeDecision(gameState.currentBet, gameState.pot, gameState.communityCards);
                         
-                        if (decision === 'fold') {
+                        if (decision === 'fold' && amountToCall > 0) {
+                            // Only allow folding when there is actually a bet to escape from.
                             player.hasFolded = true;
                             const msg = document.getElementById('game-message');
                             if (msg) msg.textContent = `${player.name} folded`;
@@ -926,8 +929,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             
                             bettingContinues = true; // Continue betting round after a fold
-                        } else if (decision === 'raise') {
-                            const raiseAmount = Math.max(gameState.currentBet + gameState.bigBlind, gameState.currentBet * 2);
+                        } else if (decision === 'raise' || decision === 'bet') {
+                            // 'raise' responds to an existing bet; 'bet' opens the betting.
+                            // When opening (currentBet === 0), start at 2× the big blind.
+                            // When raising, go at least 1 big blind above or double the current bet.
+                            const raiseAmount = gameState.currentBet === 0
+                                ? gameState.bigBlind * 2
+                                : Math.max(gameState.currentBet + gameState.bigBlind, gameState.currentBet * 2);
                             const bet = Math.min(raiseAmount - player.bet, player.stack);
                             if (bet > 0) {
                                 player.bet += bet;
@@ -937,7 +945,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 gameState.currentBet = Math.max(gameState.currentBet, player.bet);
                                 bettingContinues = true;
                                 const msg = document.getElementById('game-message');
-                                if (msg) msg.textContent = `${player.name} raised to $${player.bet}`;
+                                // Both messages show the total committed by this player for clarity.
+                                if (msg) msg.textContent = decision === 'bet'
+                                    ? `${player.name} bet $${player.bet}`
+                                    : `${player.name} raised to $${player.bet}`;
                             }
                         } else if (decision === 'call') {
                             const bet = amountToCall;
@@ -948,8 +959,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 gameState.pot += bet;
                                 const msg = document.getElementById('game-message');
                                 if (msg) msg.textContent = `${player.name} called $${bet}`;
+                            } else {
+                                // 'call' with nothing to call means the AI is checking.
+                                const msg = document.getElementById('game-message');
+                                if (msg) msg.textContent = `${player.name} checked`;
                             }
                         } else {
+                            // 'check' — or 'fold' when there is no bet to escape (treated as check).
                             const msg = document.getElementById('game-message');
                             if (msg) msg.textContent = `${player.name} checked`;
                         }
