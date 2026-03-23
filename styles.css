@@ -787,6 +787,24 @@ header {
     box-shadow: 0 0 20px rgba(230, 57, 70, 0.8);
 }
 
+/* LIFETIME SCORE (WINNINGS / DEBT) */
+.quit-stat-lifetime {
+    border: 2px solid currentColor;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.quit-label-lifetime {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+}
+
+.quit-value-lifetime {
+    font-size: 1.6rem;
+}
+
 /* RESPONSIVE */
 @media (max-height: 700px) {
     header h1 {

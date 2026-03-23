@@ -486,7 +486,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function showIntroStep() {
         const msg = document.getElementById('game-message');
         if (msg && gameState.introStep < INTRO_SCRIPT.length) {
-            msg.textContent = INTRO_SCRIPT[gameState.introStep];
+            // On the first step, greet returning players by showing their all-time score
+            if (gameState.introStep === 0 && isReturningPlayer()) {
+                const score = loadLifetimeScore();
+                const label = score >= 0 ? 'WINNINGS' : 'DEBT';
+                msg.textContent = `Welcome back! Your ${label}: $${Math.abs(score)}`;
+            } else {
+                msg.textContent = INTRO_SCRIPT[gameState.introStep];
+            }
         }
         
         // Show game examples during intro
@@ -1283,6 +1290,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (introCtrl) introCtrl.style.display = 'none';
     }
 
+    // --- Lifetime score helpers (stored in the browser so it persists between visits) ---
+
+    // Returns true if this browser has a saved score (i.e. the player has played before).
+    function isReturningPlayer() {
+        return localStorage.getItem('vibepoker_score') !== null;
+    }
+
+    // Reads the player's all-time score from localStorage. Returns 0 for first-time visitors.
+    function loadLifetimeScore() {
+        const stored = localStorage.getItem('vibepoker_score');
+        // parseInt needs the second argument (10) to ensure we always use base-10 numbers
+        return stored !== null ? parseInt(stored, 10) : 0;
+    }
+
+    // Adds this session's chip change to the all-time score and saves it.
+    function saveLifetimeScore(chipChange) {
+        const current = loadLifetimeScore();
+        const updated = current + chipChange;
+        // localStorage can only store strings, so we convert the number to text before saving
+        localStorage.setItem('vibepoker_score', updated.toString());
+        return updated;
+    }
+
+    // Builds the HTML for the WINNINGS / DEBT line shown on the quit screen.
+    function buildLifetimeScoreHTML(lifetimeScore) {
+        const label = lifetimeScore >= 0 ? 'WINNINGS' : 'DEBT';
+        const cssClass = lifetimeScore >= 0 ? 'positive' : 'negative';
+        const display = '$' + Math.abs(lifetimeScore);
+        return `<div class="quit-stat quit-stat-lifetime"><span class="quit-label quit-label-lifetime">${label}:</span><span class="quit-value quit-value-lifetime ${cssClass}">${display}</span></div>`;
+    }
+
     function displayQuitScreen() {
         const overlay = document.querySelector('.modal-overlay');
         if (overlay) overlay.style.display = 'none';
@@ -1303,12 +1341,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
+        // Update and retrieve the all-time score for this player
+        const lifetimeScore = saveLifetimeScore(chipChange);
+
         let html = '<div class="quit-card-content">';
         html += '<div class="quit-title">Thanks for Playing!</div>';
+        html += buildLifetimeScoreHTML(lifetimeScore);
         html += '<div class="quit-stat"><span class="quit-label">Final Chips:</span><span class="quit-value">$' + finalStack + '</span></div>';
-        html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '\">' + chipChangeDisplay + '</span></div>';
+        html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
-        html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';        html += '<div class="quit-btn-group"><button class="quit-btn quit-btn-play" onclick="location.reload()">PLAY<br>AGAIN</button></div>';        html += '</div>';
+        html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
+        html += '<div class="quit-btn-group"><button class="quit-btn quit-btn-play" onclick="location.reload()">PLAY<br>AGAIN</button></div>';
+        html += '</div>';
 
         quitScreen.innerHTML = html;
         quitScreen.style.display = 'block';
@@ -1325,6 +1369,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         showIntroStep();
         updateDisplay();
+
+        // If this player has visited before, let them skip straight to the game
+        if (isReturningPlayer()) {
+            const startBtn = document.getElementById('start-game');
+            if (startBtn) startBtn.style.display = 'inline-block';
+        }
     } catch (e) {
         console.error('Error starting game:', e);
     }
