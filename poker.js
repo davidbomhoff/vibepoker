@@ -909,9 +909,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Reveal AI player cards and dim panel
                             const playerIdx = parseInt(playerId.replace('ai', ''));
                             displayAICards(playerIdx, true);
-                            const playerSeats = document.querySelectorAll('.player-seat');
-                            if (playerSeats[playerIdx]) {
-                                playerSeats[playerIdx].classList.add('folded');
+                            // Find this AI player's seat by navigating up from their card container,
+                            // rather than using a DOM index (which would be off because the user's
+                            // seat sits between AI 0 and AI 1 in the HTML).
+                            const aiCardContainer = document.getElementById(`ai-player-${playerIdx}-cards`);
+                            const foldedSeat = aiCardContainer ? aiCardContainer.closest('.player-seat') : null;
+                            if (foldedSeat) {
+                                foldedSeat.classList.add('folded');
                             }
                             
                             bettingContinues = true; // Continue betting round after a fold
