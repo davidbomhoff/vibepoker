@@ -675,7 +675,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('fold').addEventListener('click', () => {
         gameState.playerFolded = true;
-        gameState.activePlayers = gameState.activePlayers.filter(id => !gameState.playerFolded || id !== 'player');
         const msg = document.getElementById('game-message');
         if (msg) msg.textContent = 'You folded';
         const ctrl = document.getElementById('action-controls');
@@ -770,6 +769,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ctrl) ctrl.style.display = 'flex';
     });
 
+    const CARD_REVEAL_DELAY_MS = 3000;
+
+    function countActivePlayers() {
+        const activeAIs = gameState.aiPlayers.filter(p => !p.hasFolded).length;
+        return activeAIs + (gameState.playerFolded ? 0 : 1);
+    }
+
     async function advancePhase() {
         if (gameState.roundOver || gameState.gameOver) return;
         
@@ -793,161 +799,168 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // If player folded, move to next phase
-        if (gameState.playerFolded) {
-            // Count remaining actively-playing AI players
-            const activeAICount = gameState.activePlayers.length;
+        // Count total active (non-folded) players
+        const totalActive = countActivePlayers();
+        
+        // If only 1 or fewer players remain, go to showdown immediately
+        if (totalActive <= 1) {
+            showdown();
+            return;
+        }
+        
+        // Betting sequence: User -> P1 -> P2 -> P3 -> repeat until bets are settled
+        // The player section skips when folded, so this loop handles both cases.
+        const playerOrder = ['player', 'ai0', 'ai1', 'ai2'];
+        let bettingContinues = true;
+        let roundCount = 0;
+        const maxRounds = 20; // Prevent infinite loops
+        
+        while (bettingContinues && roundCount < maxRounds && !gameState.gameOver) {
+            roundCount++;
+            bettingContinues = false;
             
-            // Only go to showdown if <= 1 AI player remains (human already folded)
-            if (activeAICount <= 1) {
-                showdown();
-                return;
-            }
-        } else {
-            // Betting sequence: User -> P1 -> P2 -> P3 -> User -> repeat
-            // until all active players have matched the current bet
-            
-            const playerOrder = ['player', 'ai0', 'ai1', 'ai2'];
-            let playerIndex = 0;
-            let bettingContinues = true;
-            let roundCount = 0;
-            const maxRounds = 20; // Prevent infinite loops
-            
-            while (bettingContinues && roundCount < maxRounds && !gameState.gameOver) {
-                roundCount++;
-                bettingContinues = false;
+            for (let i = 0; i < playerOrder.length; i++) {
+                if (gameState.gameOver) break;
                 
-                for (let i = 0; i < playerOrder.length; i++) {
-                    if (gameState.gameOver) break;
+                const playerId = playerOrder[i];
+                
+                if (playerId === 'player') {
+                    // User's turn - skip if folded or out of chips
+                    if (gameState.playerFolded || gameState.playerStack === 0) {
+                        continue;
+                    }
                     
-                    const playerId = playerOrder[i];
+                    const amountToCall = Math.min(gameState.currentBet - gameState.playerBet, gameState.playerStack);
                     
-                    if (playerId === 'player') {
-                        // User's turn
-                        if (gameState.playerFolded || gameState.playerStack === 0) {
-                            continue; // Skip if folded or out of chips
-                        }
+                    if (amountToCall > 0) {
+                        // Player needs to respond to a raise - wait for their action
+                        const ctrl = document.getElementById('action-controls');
+                        if (ctrl) ctrl.style.display = 'flex';
+                        updateButtonStates();
+                        const msg = document.getElementById('game-message');
+                        if (msg) msg.textContent = `Your turn! Call $${amountToCall}, raise, or fold?`;
                         
-                        const amountToCall = Math.min(gameState.currentBet - gameState.playerBet, gameState.playerStack);
+                        // Exit advancePhase; player action buttons will call advancePhase() again
+                        return;
+                    }
+                } else {
+                    // AI player's turn
+                    const player = gameState.aiPlayers[playerId.replace('ai', '')];
+                    if (!player || player.hasFolded || player.stack <= 0) {
+                        continue; // Skip folded or out of chips
+                    }
+                    
+                    const amountToCall = Math.min(gameState.currentBet - player.bet, player.stack);
+                    
+                    if (amountToCall > 0) {
+                        const decision = player.makeDecision(gameState.currentBet, gameState.pot, gameState.communityCards);
                         
-                        if (amountToCall > 0) {
-                            // Player needs to respond to a raise - wait for their action
-                            const ctrl = document.getElementById('action-controls');
-                            if (ctrl) ctrl.style.display = 'flex';
-                            updateButtonStates();
+                        if (decision === 'fold') {
+                            player.hasFolded = true;
                             const msg = document.getElementById('game-message');
-                            if (msg) msg.textContent = `Your turn! Call $${amountToCall}, raise, or fold?`;
+                            if (msg) msg.textContent = `${player.name} folded`;
                             
-                            // Wait for player action
-                            return; // Exit advancePhase, player will call playerAction() when ready
-                        }
-                    } else {
-                        // AI player's turn
-                        const player = gameState.aiPlayers[playerId.replace('ai', '')];
-                        if (!player || player.hasFolded || player.stack <= 0) {
-                            continue; // Skip folded or out of chips
-                        }
-                        
-                        const amountToCall = Math.min(gameState.currentBet - player.bet, player.stack);
-                        
-                        if (amountToCall > 0) {
-                            const decision = player.makeDecision(gameState.currentBet, gameState.pot, gameState.communityCards);
-                            
-                            if (decision === 'fold') {
-                                player.hasFolded = true;
-                                gameState.activePlayers = gameState.activePlayers.filter(id => id !== playerId.replace('ai', ''));
-                                const msg = document.getElementById('game-message');
-                                if (msg) msg.textContent = `${player.name} folded`;
-                                
-                                // Reveal AI player cards and dim panel
-                                const playerIndex = parseInt(playerId.replace('ai', ''));
-                                displayAICards(playerIndex, true);
-                                const playerSeats = document.querySelectorAll('.player-seat');
-                                if (playerSeats[playerIndex]) {
-                                    playerSeats[playerIndex].classList.add('folded');
-                                }
-                                
-                                bettingContinues = true; // Continue betting
-                            } else if (decision === 'raise') {
-                                const raiseAmount = Math.max(gameState.currentBet + gameState.bigBlind, gameState.currentBet * 2);
-                                const bet = Math.min(raiseAmount - player.bet, player.stack);
-                                if (bet > 0) {
-                                    player.bet += bet;
-                                    player.stack -= bet;
-                                    player.totalBet += bet;
-                                    gameState.pot += bet;
-                                    gameState.currentBet = Math.max(gameState.currentBet, player.bet);
-                                    bettingContinues = true;
-                                    const msg = document.getElementById('game-message');
-                                    if (msg) msg.textContent = `${player.name} raised to $${player.bet}`;
-                                }
-                            } else if (decision === 'call') {
-                                const bet = amountToCall;
-                                if (bet > 0) {
-                                    player.bet += bet;
-                                    player.stack -= bet;
-                                    player.totalBet += bet;
-                                    gameState.pot += bet;
-                                    const msg = document.getElementById('game-message');
-                                    if (msg) msg.textContent = `${player.name} called $${bet}`;
-                                }
-                            } else {
-                                const msg = document.getElementById('game-message');
-                                if (msg) msg.textContent = `${player.name} checked`;
+                            // Reveal AI player cards and dim panel
+                            const playerIdx = parseInt(playerId.replace('ai', ''));
+                            displayAICards(playerIdx, true);
+                            const playerSeats = document.querySelectorAll('.player-seat');
+                            if (playerSeats[playerIdx]) {
+                                playerSeats[playerIdx].classList.add('folded');
                             }
                             
-                            updateDisplay();
-                            await new Promise(r => setTimeout(r, 800));
+                            bettingContinues = true; // Continue betting round after a fold
+                        } else if (decision === 'raise') {
+                            const raiseAmount = Math.max(gameState.currentBet + gameState.bigBlind, gameState.currentBet * 2);
+                            const bet = Math.min(raiseAmount - player.bet, player.stack);
+                            if (bet > 0) {
+                                player.bet += bet;
+                                player.stack -= bet;
+                                player.totalBet += bet;
+                                gameState.pot += bet;
+                                gameState.currentBet = Math.max(gameState.currentBet, player.bet);
+                                bettingContinues = true;
+                                const msg = document.getElementById('game-message');
+                                if (msg) msg.textContent = `${player.name} raised to $${player.bet}`;
+                            }
+                        } else if (decision === 'call') {
+                            const bet = amountToCall;
+                            if (bet > 0) {
+                                player.bet += bet;
+                                player.stack -= bet;
+                                player.totalBet += bet;
+                                gameState.pot += bet;
+                                const msg = document.getElementById('game-message');
+                                if (msg) msg.textContent = `${player.name} called $${bet}`;
+                            }
+                        } else {
+                            const msg = document.getElementById('game-message');
+                            if (msg) msg.textContent = `${player.name} checked`;
                         }
+                        
+                        updateDisplay();
+                        await new Promise(r => setTimeout(r, 800));
                     }
                 }
             }
         }
 
-        // If we get here, betting round is done - move to next phase
+        // Re-check active players after betting (AIs may have folded during the round)
+        if (countActivePlayers() <= 1) {
+            showdown();
+            return;
+        }
+
+        // Betting round is done - move to next phase with a 3-second delay before card reveal
+        let phaseMessage = '';
+        const gameMsg = document.getElementById('game-message');
         if (gameState.gamePhase === 'preFlop' && gameState.deck.length >= 3) {
+            if (gameMsg) gameMsg.textContent = 'Dealing the Flop...';
+            await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'flop';
             gameState.communityCards.push(gameState.deck.pop(), gameState.deck.pop(), gameState.deck.pop());
             displayCommunityCards();
             updateCurrentHand();
             displayPossibleHands();
-            const msg = document.getElementById('game-message');
-            if (msg) msg.textContent = 'FLOP revealed! Your turn to bet.';
+            phaseMessage = 'FLOP revealed! Your turn to bet.';
             resetBets();
         } else if (gameState.gamePhase === 'flop' && gameState.deck.length >= 1) {
+            if (gameMsg) gameMsg.textContent = 'Dealing the Turn...';
+            await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'turn';
             gameState.communityCards.push(gameState.deck.pop());
             displayCommunityCards();
             updateCurrentHand();
             displayPossibleHands();
-            const msg = document.getElementById('game-message');
-            if (msg) msg.textContent = 'TURN revealed! Your turn to bet.';
+            phaseMessage = 'TURN revealed! Your turn to bet.';
             resetBets();
         } else if (gameState.gamePhase === 'turn' && gameState.deck.length >= 1) {
+            if (gameMsg) gameMsg.textContent = 'Dealing the River...';
+            await new Promise(r => setTimeout(r, CARD_REVEAL_DELAY_MS));
             gameState.gamePhase = 'river';
             gameState.communityCards.push(gameState.deck.pop());
             displayCommunityCards();
             updateCurrentHand();
             displayPossibleHands();
-            const msg = document.getElementById('game-message');
-            if (msg) msg.textContent = 'RIVER revealed! Last chance to bet.';
+            phaseMessage = 'RIVER revealed! Last chance to bet.';
             resetBets();
         } else {
             showdown();
             return;
         }
 
-        // Only show action controls if player can still act AND there are other active players
-        // Count all active players: active AIs + active human
-        const activeHuman = !gameState.playerFolded && gameState.playerStack > 0;
-        const totalActivePlayers = gameState.activePlayers.length + (activeHuman ? 1 : 0);
-        
-        if (!gameState.gameOver && totalActivePlayers > 1 && gameState.playerStack > 0 && !gameState.playerFolded) {
+        if (gameState.playerFolded) {
+            // Player has folded - show phase info then auto-advance so AI players finish betting
+            const aiPhaseMsg = gameState.gamePhase === 'river'
+                ? 'RIVER revealed! AI players betting...'
+                : `${gameState.gamePhase.toUpperCase()} revealed! AI players betting...`;
+            if (gameMsg) gameMsg.textContent = aiPhaseMsg;
+            setTimeout(() => advancePhase(), 800);
+        } else {
+            // Show action controls so the player can bet on the new street
+            if (gameMsg) gameMsg.textContent = phaseMessage;
             const ctrl = document.getElementById('action-controls');
             if (ctrl) ctrl.style.display = 'flex';
             updateButtonStates();
-        } else {
-            showdown();
         }
     }
 
