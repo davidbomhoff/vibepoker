@@ -1035,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Betting round is done - move to next phase with a 3-second delay before card reveal
+        // Betting round is done - move to next phase with a 1-second delay before card reveal
         let phaseMessage = '';
         const gameMsg = document.getElementById('game-message');
         if (gameState.gamePhase === 'preFlop' && gameState.deck.length >= 3) {
@@ -1268,40 +1268,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
+        // Save the all-time score so losing a session still counts
+        // Updates localStorage with total chip change across all sessions and returns the new total
+        const lifetimeScore = saveLifetimeScore(chipChange);
+
         let html = '<div class="quit-card-content">';
         html += '<div class="quit-title lose-title">You lost!</div>';
         html += '<div class="quit-subtitle">All your chips have been bet.</div>';
+        // Creates HTML showing 'Career Debt: $X' or 'Career Winnings: $X' based on all-time chip total
+        html += buildLifetimeScoreHTML(lifetimeScore);
         html += '<div class="quit-stat"><span class="quit-label">Final Chips:</span><span class="quit-value">$' + finalStack + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '\">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
-        html += '<div class="quit-btn-group"><button id="lose-play-again" class="quit-btn quit-btn-play">PLAY<br>AGAIN</button><button id="lose-quit" class="quit-btn quit-btn-quit">QUIT</button></div>';
+        html += '<div class="quit-btn-group"><button id="lose-new-round" class="quit-btn quit-btn-play">NEW<br>ROUND</button></div>';
         html += '</div>';
 
         loseScreen.innerHTML = html;
         loseScreen.style.display = 'block';
 
-        // Add event listeners
-        const playAgainBtn = document.getElementById('lose-play-again');
-        if (playAgainBtn) {
-            playAgainBtn.onclick = () => {
-                // Reset stats and start new hand
-                gameState.playerStack = 500;
-                gameState.roundsWon = 0;
-                gameState.highestHand = null;
-                gameState.initialStack = 500;
-                loseScreen.style.display = 'none';
-                gameState.dealerPosition = (gameState.dealerPosition + 1) % 3;
-                gameState.smallBlindPos = (gameState.smallBlindPos + 1) % 3;
-                gameState.bigBlindPos = (gameState.bigBlindPos + 1) % 3;
-                startNewHand();
-            };
-        }
-        const quitBtn = document.getElementById('lose-quit');
-        if (quitBtn) {
-            quitBtn.onclick = () => {
-                displayQuitScreen();
-            };
+        // "New Round" resets everyone to 500 chips and starts fresh
+        const newRoundBtn = document.getElementById('lose-new-round');
+        if (newRoundBtn) {
+            newRoundBtn.onclick = () => resetGameForNewRound(loseScreen);
         }
 
         // Hide all game elements
@@ -1386,6 +1375,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Lifetime score helpers (stored in the browser so it persists between visits) ---
 
+    // Resets all player and AI chip counts to 500, clears stats, and starts a new hand.
+    // Call this when the player clicks "NEW ROUND" from any end-of-game screen.
+    // screenToHide is the DOM element (quit or lose screen overlay) to close before starting the hand.
+    function resetGameForNewRound(screenToHide) {
+        gameState.playerStack = 500;
+        gameState.roundsWon = 0;
+        gameState.highestHand = null;
+        gameState.initialStack = 500;
+        // Loop through each AI opponent and reset their chip stack to 500, clearing any leftover bets
+        gameState.aiPlayers.forEach(p => {
+            p.stack = 500;
+            p.bet = 0;
+            p.totalBet = 0;
+            p.hasFolded = false;
+        });
+        if (screenToHide) screenToHide.style.display = 'none';
+        gameState.dealerPosition = (gameState.dealerPosition + 1) % 3;
+        gameState.smallBlindPos = (gameState.smallBlindPos + 1) % 3;
+        gameState.bigBlindPos = (gameState.bigBlindPos + 1) % 3;
+        startNewHand();
+    }
+
     // Returns true if this browser has a saved score (i.e. the player has played before).
     function isReturningPlayer() {
         return localStorage.getItem('vibepoker_score') !== null;
@@ -1445,11 +1456,17 @@ document.addEventListener('DOMContentLoaded', () => {
         html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
-        html += '<div class="quit-btn-group"><button class="quit-btn quit-btn-play" onclick="location.reload()">PLAY<br>AGAIN</button></div>';
+        html += '<div class="quit-btn-group"><button id="quit-new-round" class="quit-btn quit-btn-play">NEW<br>ROUND</button></div>';
         html += '</div>';
 
         quitScreen.innerHTML = html;
         quitScreen.style.display = 'block';
+
+        // "New Round" resets everyone to 500 chips and starts fresh
+        const newRoundBtn = document.getElementById('quit-new-round');
+        if (newRoundBtn) {
+            newRoundBtn.onclick = () => resetGameForNewRound(quitScreen);
+        }
 
         // Hide all game elements
         const actionCtrl = document.getElementById('action-controls');
