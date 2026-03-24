@@ -509,20 +509,23 @@ document.addEventListener('DOMContentLoaded', () => {
         updateScoreDisplay();
     }
 
-    // Updates the header score banner with the player's chip gain or loss for this session.
-    // "Session score" = current chips minus the 500 they started with.
-    // Positive = WINNINGS (green), Negative = DEBT (red), Zero = BREAK EVEN (yellow).
+    // Updates the header score banner with the player's all-time lifetime score.
+    // Lifetime score = chips saved from all previous sessions + chips gained/lost so far this session.
+    // Positive = WINNINGS (green), Negative = DEBT (red), Zero = BREAK EVEN (gray).
     function updateScoreDisplay() {
         const el = document.getElementById('score-display');
         if (!el) return;
+        // Current session delta: how many chips up or down compared to the starting stack
         const sessionScore = gameState.playerStack - gameState.initialStack;
+        // Add the saved all-time total (from localStorage) to get the true lifetime score
+        const lifetimeScore = loadLifetimeScore() + sessionScore;
         // Remove all state classes before applying the correct one
         el.classList.remove('positive', 'negative', 'break-even');
-        if (sessionScore > 0) {
-            el.textContent = 'WINNINGS +$' + sessionScore;
+        if (lifetimeScore > 0) {
+            el.textContent = 'WINNINGS +$' + lifetimeScore;
             el.classList.add('positive');
-        } else if (sessionScore < 0) {
-            el.textContent = 'DEBT -$' + Math.abs(sessionScore);
+        } else if (lifetimeScore < 0) {
+            el.textContent = 'DEBT -$' + Math.abs(lifetimeScore);
             el.classList.add('negative');
         } else {
             el.textContent = 'BREAK EVEN';
