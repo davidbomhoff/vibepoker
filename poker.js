@@ -1295,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
-        // Saves this session's chip change to localStorage and returns the new all-time total
+        // Save the player's chip change to localStorage so we can display their updated all-time total on the lose screen
         const lifetimeScore = saveLifetimeScore(chipChange);
 
         let html = '<div class="quit-card-content">';
@@ -1348,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
-        // Saves this session's chip change to localStorage and returns the new all-time total
+        // Save the player's chip change to localStorage so we can display their updated all-time total on the win screen
         const lifetimeScore = saveLifetimeScore(chipChange);
 
         let html = '<div class="quit-card-content">';
@@ -1391,7 +1391,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.roundsWon = 0;
         gameState.highestHand = null;
         gameState.initialStack = 500;
-        // Loop through each AI opponent and reset their chip stack to 500, clearing any leftover bets
+        // .forEach() runs the function once for every AI player in the array — here it resets each one's chips and bets to 500/$0
         gameState.aiPlayers.forEach(p => {
             p.stack = 500;
             p.bet = 0;
@@ -1428,6 +1428,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Builds the HTML for the WINNINGS / DEBT / BREAK EVEN line shown on end screens.
     function buildLifetimeScoreHTML(lifetimeScore) {
+        // Check if the score is positive (winning), negative (losing), or zero (break even)
+        // and set the appropriate label, CSS class, and display format for each case
         let label, cssClass, display;
         if (lifetimeScore > 0) {
             label = 'WINNINGS';
