@@ -124,6 +124,18 @@ header {
     display: flex;
     gap: 12px;
     justify-content: center;
+    perspective: 800px;
+}
+
+/* CARD DEAL ANIMATION – card flips from face-down to face-up */
+@keyframes cardFlip {
+    0%   { transform: rotateY(90deg) scale(0.85); opacity: 0; }
+    60%  { transform: rotateY(-8deg) scale(1.05);  opacity: 1; }
+    100% { transform: rotateY(0deg)  scale(1);     opacity: 1; }
+}
+
+.card.dealing {
+    animation: cardFlip 0.4s ease-out forwards;
 }
 
 /* CARD STYLING */
@@ -338,6 +350,29 @@ header {
 .player-seat.folded .player-stack {
     color: #999;
     text-shadow: 0 0 2px #666;
+}
+
+/* ELIMINATED STATE (player is out of chips for the session) */
+.player-seat.eliminated {
+    opacity: 0.35;
+    border-color: #555;
+    background: rgba(0, 0, 0, 0.7);
+    filter: grayscale(1);
+}
+
+.player-seat.eliminated .player-name,
+.player-seat.eliminated .player-stack {
+    color: #666;
+    text-shadow: none;
+}
+
+.eliminated-label {
+    color: #ff4444;
+    font-weight: bold;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 4px #ff4444;
 }
 
 /* PLAYER INFO */
