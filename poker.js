@@ -504,6 +504,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
+        // Update the live session score shown in the header
+        updateScoreDisplay();
+    }
+
+    // Updates the header score banner with the player's all-time lifetime score.
+    // Lifetime score = chips saved from all previous sessions + chips gained/lost so far this session.
+    // Positive = WINNINGS (green), Negative = DEBT (red), Zero = BREAK EVEN (gray).
+    function updateScoreDisplay() {
+        const el = document.getElementById('score-display');
+        if (!el) return;
+        // Current session delta: how many chips up or down compared to the starting stack
+        const sessionScore = gameState.playerStack - gameState.initialStack;
+        // Add the saved all-time total (from localStorage) to get the true lifetime score
+        const lifetimeScore = loadLifetimeScore() + sessionScore;
+        // Remove all state classes before applying the correct one
+        el.classList.remove('positive', 'negative', 'break-even');
+        if (lifetimeScore > 0) {
+            el.textContent = 'WINNINGS +$' + lifetimeScore;
+            el.classList.add('positive');
+        } else if (lifetimeScore < 0) {
+            el.textContent = 'DEBT -$' + Math.abs(lifetimeScore);
+            el.classList.add('negative');
+        } else {
+            el.textContent = 'BREAK EVEN';
+            el.classList.add('break-even');
+        }
     }
 
     function showIntroStep() {
@@ -512,8 +539,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // On the first step, greet returning players by showing their all-time score
             if (gameState.introStep === 0 && isReturningPlayer()) {
                 const score = loadLifetimeScore();
-                const label = score >= 0 ? 'WINNINGS' : 'DEBT';
-                msg.textContent = `Welcome back! Your ${label}: $${Math.abs(score)}`;
+                let scoreText;
+                if (score > 0) scoreText = `WINNINGS: +$${score}`;
+                else if (score < 0) scoreText = `DEBT: -$${Math.abs(score)}`;
+                else scoreText = 'BREAK EVEN';
+                msg.textContent = `Welcome back! Your ${scoreText}`;
             } else {
                 msg.textContent = INTRO_SCRIPT[gameState.introStep];
             }
@@ -1035,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Betting round is done - move to next phase with a 3-second delay before card reveal
+        // Betting round is done - move to next phase with a 1-second delay before card reveal
         let phaseMessage = '';
         const gameMsg = document.getElementById('game-message');
         if (gameState.gamePhase === 'preFlop' && gameState.deck.length >= 3) {
@@ -1268,40 +1298,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
+        // Save the player's chip change to localStorage so we can display their updated all-time total on the lose screen
+        const lifetimeScore = saveLifetimeScore(chipChange);
+
         let html = '<div class="quit-card-content">';
         html += '<div class="quit-title lose-title">You lost!</div>';
         html += '<div class="quit-subtitle">All your chips have been bet.</div>';
+        // Creates HTML showing 'WINNINGS: +$X', 'DEBT: -$X', or 'BREAK EVEN: $0' based on all-time chip total
+        html += buildLifetimeScoreHTML(lifetimeScore);
         html += '<div class="quit-stat"><span class="quit-label">Final Chips:</span><span class="quit-value">$' + finalStack + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '\">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
-        html += '<div class="quit-btn-group"><button id="lose-play-again" class="quit-btn quit-btn-play">PLAY<br>AGAIN</button><button id="lose-quit" class="quit-btn quit-btn-quit">QUIT</button></div>';
+        html += '<div class="quit-btn-group"><button id="lose-new-round" class="quit-btn quit-btn-play">NEW<br>ROUND</button></div>';
         html += '</div>';
 
         loseScreen.innerHTML = html;
         loseScreen.style.display = 'block';
 
-        // Add event listeners
-        const playAgainBtn = document.getElementById('lose-play-again');
-        if (playAgainBtn) {
-            playAgainBtn.onclick = () => {
-                // Reset stats and start new hand
-                gameState.playerStack = 500;
-                gameState.roundsWon = 0;
-                gameState.highestHand = null;
-                gameState.initialStack = 500;
-                loseScreen.style.display = 'none';
-                gameState.dealerPosition = (gameState.dealerPosition + 1) % 3;
-                gameState.smallBlindPos = (gameState.smallBlindPos + 1) % 3;
-                gameState.bigBlindPos = (gameState.bigBlindPos + 1) % 3;
-                startNewHand();
-            };
-        }
-        const quitBtn = document.getElementById('lose-quit');
-        if (quitBtn) {
-            quitBtn.onclick = () => {
-                displayQuitScreen();
-            };
+        // "New Round" resets everyone to 500 chips and starts fresh
+        const newRoundBtn = document.getElementById('lose-new-round');
+        if (newRoundBtn) {
+            newRoundBtn.onclick = () => resetGameForNewRound(loseScreen);
         }
 
         // Hide all game elements
@@ -1333,46 +1351,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const chipChangeDisplay = chipChange >= 0 ? '+$' + chipChange : '-$' + Math.abs(chipChange);
         const highestHand = gameState.highestHand || 'None';
 
+        // Save the player's chip change to localStorage so we can display their updated all-time total on the win screen
+        const lifetimeScore = saveLifetimeScore(chipChange);
+
         let html = '<div class="quit-card-content">';
         html += '<div class="quit-title win-title">YOU WIN!</div>';
         html += '<div class="quit-subtitle">You defeated all opponents!</div>';
+        // Creates HTML showing 'WINNINGS: +$X', 'DEBT: -$X', or 'BREAK EVEN: $0' based on all-time chip total
+        html += buildLifetimeScoreHTML(lifetimeScore);
         html += '<div class="quit-stat"><span class="quit-label">Final Chips:</span><span class="quit-value">$' + finalStack + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '\">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
-        html += '<div class="quit-btn-group"><button id="win-play-again" class="quit-btn quit-btn-play">PLAY<br>AGAIN</button><button id="win-quit" class="quit-btn quit-btn-quit">QUIT</button></div>';
+        html += '<div class="quit-btn-group"><button id="win-new-round" class="quit-btn quit-btn-play">NEW<br>ROUND</button></div>';
         html += '</div>';
 
         winScreen.innerHTML = html;
         winScreen.style.display = 'block';
 
-        // Add event listeners
-        const playAgainBtn = document.getElementById('win-play-again');
-        if (playAgainBtn) {
-            playAgainBtn.onclick = () => {
-                // Reset game and start new session
-                gameState.playerStack = 500;
-                gameState.roundsWon = 0;
-                gameState.highestHand = null;
-                gameState.initialStack = 500;
-                gameState.aiPlayers.forEach(p => {
-                    p.stack = 500;
-                    p.bet = 0;
-                    p.totalBet = 0;
-                    p.hasFolded = false;
-                });
-                winScreen.style.display = 'none';
-                gameState.dealerPosition = (gameState.dealerPosition + 1) % 3;
-                gameState.smallBlindPos = (gameState.smallBlindPos + 1) % 3;
-                gameState.bigBlindPos = (gameState.bigBlindPos + 1) % 3;
-                startNewHand();
-            };
-        }
-        const quitBtn = document.getElementById('win-quit');
-        if (quitBtn) {
-            quitBtn.onclick = () => {
-                displayQuitScreen();
-            };
+        // "New Round" resets everyone to 500 chips and starts fresh
+        const newRoundBtn = document.getElementById('win-new-round');
+        if (newRoundBtn) {
+            newRoundBtn.onclick = () => resetGameForNewRound(winScreen);
         }
 
         // Hide all game elements
@@ -1385,6 +1385,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Lifetime score helpers (stored in the browser so it persists between visits) ---
+
+    // Resets all player and AI chip counts to 500, clears stats, and starts a new hand.
+    // Call this when the player clicks "NEW ROUND" from any end-of-game screen.
+    // screenToHide is the DOM element (quit or lose screen overlay) to close before starting the hand.
+    function resetGameForNewRound(screenToHide) {
+        gameState.playerStack = 500;
+        gameState.roundsWon = 0;
+        gameState.highestHand = null;
+        gameState.initialStack = 500;
+        // .forEach() runs the function once for every AI player in the array — here it resets each one's chips and bets to 500/$0
+        gameState.aiPlayers.forEach(p => {
+            p.stack = 500;
+            p.bet = 0;
+            p.totalBet = 0;
+            p.hasFolded = false;
+        });
+        if (screenToHide) screenToHide.style.display = 'none';
+        gameState.dealerPosition = (gameState.dealerPosition + 1) % 3;
+        gameState.smallBlindPos = (gameState.smallBlindPos + 1) % 3;
+        gameState.bigBlindPos = (gameState.bigBlindPos + 1) % 3;
+        startNewHand();
+    }
 
     // Returns true if this browser has a saved score (i.e. the player has played before).
     function isReturningPlayer() {
@@ -1407,11 +1429,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return updated;
     }
 
-    // Builds the HTML for the WINNINGS / DEBT line shown on the quit screen.
+    // Builds the HTML for the WINNINGS / DEBT / BREAK EVEN line shown on end screens.
     function buildLifetimeScoreHTML(lifetimeScore) {
-        const label = lifetimeScore >= 0 ? 'WINNINGS' : 'DEBT';
-        const cssClass = lifetimeScore >= 0 ? 'positive' : 'negative';
-        const display = '$' + Math.abs(lifetimeScore);
+        // Check if the score is positive (winning), negative (losing), or zero (break even)
+        // and set the appropriate label, CSS class, and display format for each case
+        let label, cssClass, display;
+        if (lifetimeScore > 0) {
+            label = 'WINNINGS';
+            cssClass = 'positive';
+            display = '+$' + lifetimeScore;
+        } else if (lifetimeScore < 0) {
+            label = 'DEBT';
+            cssClass = 'negative';
+            display = '-$' + Math.abs(lifetimeScore);
+        } else {
+            label = 'BREAK EVEN';
+            cssClass = '';
+            display = '$0';
+        }
         return `<div class="quit-stat quit-stat-lifetime"><span class="quit-label quit-label-lifetime">${label}:</span><span class="quit-value quit-value-lifetime ${cssClass}">${display}</span></div>`;
     }
 
@@ -1445,11 +1480,17 @@ document.addEventListener('DOMContentLoaded', () => {
         html += '<div class="quit-stat"><span class="quit-label">Chip Change:</span><span class="quit-value ' + (chipChange >= 0 ? 'positive' : 'negative') + '">' + chipChangeDisplay + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Highest Hand:</span><span class="quit-value">' + highestHand + '</span></div>';
         html += '<div class="quit-stat"><span class="quit-label">Rounds Won:</span><span class="quit-value">' + gameState.roundsWon + '</span></div>';
-        html += '<div class="quit-btn-group"><button class="quit-btn quit-btn-play" onclick="location.reload()">PLAY<br>AGAIN</button></div>';
+        html += '<div class="quit-btn-group"><button id="quit-new-round" class="quit-btn quit-btn-play">NEW<br>ROUND</button></div>';
         html += '</div>';
 
         quitScreen.innerHTML = html;
         quitScreen.style.display = 'block';
+
+        // "New Round" resets everyone to 500 chips and starts fresh
+        const newRoundBtn = document.getElementById('quit-new-round');
+        if (newRoundBtn) {
+            newRoundBtn.onclick = () => resetGameForNewRound(quitScreen);
+        }
 
         // Hide all game elements
         const actionCtrl = document.getElementById('action-controls');

@@ -46,6 +46,29 @@ header p {
     opacity: 0.8;
 }
 
+/* Live session score shown in the header throughout the game */
+.score-display {
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    transition: color 0.3s, text-shadow 0.3s;
+}
+
+.score-display.positive {
+    color: #00ff00;
+    text-shadow: 0 0 8px #00ff00;
+}
+
+.score-display.negative {
+    color: #ff6b6b;
+    text-shadow: 0 0 8px #ff6b6b;
+}
+
+.score-display.break-even {
+    color: #aaaaaa;
+    text-shadow: 0 0 8px #aaaaaa;
+}
+
 header {
     margin-bottom: 8px;
 }
@@ -677,7 +700,7 @@ header {
     bottom: 0;
     background: linear-gradient(135deg, #0a0a0a 0%, #1a0f2e 100%);
     z-index: 100;
-    display: flex !important;
+    display: flex;
     justify-content: center !important;
     align-items: center !important;
     flex-direction: column !important;
