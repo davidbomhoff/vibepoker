@@ -197,7 +197,7 @@ header {
 
 .card.hidden {
     background: linear-gradient(135deg, #ff8c00, #ffaa00);
-    border-color: #ff8c00;
+    border-color: #'red';
 }
 
 /* PLAYERS CONTAINER */
